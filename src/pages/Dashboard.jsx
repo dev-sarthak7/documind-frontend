@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
-import { Upload, FileText, LogOut, Loader } from 'lucide-react';
+import AnimatedBg from '../components/AnimatedBg';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
@@ -11,11 +11,11 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
-  useEffect(() => { 
-  fetchDocuments(); 
-  const interval = setInterval(fetchDocuments, 5000);
-  return () => clearInterval(interval);
-}, []);
+  useEffect(() => {
+    fetchDocuments();
+    const interval = setInterval(fetchDocuments, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchDocuments = async () => {
     try {
@@ -26,118 +26,129 @@ export default function Dashboard() {
 
   const handleFileUpload = async (file) => {
     if (!file) return;
-    const allowedTypes = ['application/pdf', 'text/plain'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Only PDF and TXT files are supported');
-      return;
+    if (!['application/pdf', 'text/plain'].includes(file.type)) {
+      alert('Only PDF and TXT files are supported'); return;
     }
-
     setUploading(true);
     try {
-      // 1. Get presigned URL
       const { data } = await api.post('/api/upload/presigned-url', {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
+        fileName: file.name, fileType: file.type, fileSize: file.size,
       });
-
-      // 2. Upload directly to S3
-      await fetch(data.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
-      });
-
-      // 3. Confirm upload and trigger processing
+      await fetch(data.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
       await api.post('/api/upload/confirm', { documentId: data.documentId });
-
       await fetchDocuments();
-      alert('Document uploaded! Processing will complete shortly.');
     } catch (err) {
       alert('Upload failed: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setUploading(false);
-    }
+    } finally { setUploading(false); }
   };
 
-  const statusColor = (status) => ({
-    uploaded: '#f0a500', processing: '#7c6ff7',
-    ready: '#4caf50', failed: '#ff6b6b'
-  }[status] || '#666');
+  const statusColor = { uploaded: '#f0a500', processing: '#7c6ff7', ready: '#4caf50', failed: '#ff6b6b' };
+  const readyCount = documents.filter(d => d.status === 'ready').length;
 
   return (
-    <div style={styles.container}>
-      <nav style={styles.nav}>
-        <h1 style={styles.logo}>DocuMind</h1>
-        <div style={styles.navRight}>
-          <span style={styles.userName}>{user?.name}</span>
-          <button style={styles.logoutBtn} onClick={() => { logout(); navigate('/login'); }}>
-            <LogOut size={16} /> Logout
-          </button>
-        </div>
-      </nav>
+    <div style={{ minHeight: '100vh', position: 'relative' }}>
+      <AnimatedBg />
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <nav style={s.nav}>
+          <div style={s.logo}>
+            <div style={s.logoIcon}>🧠</div>
+            DocuMind
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '13px', color: '#444' }}>{user?.name}</span>
+            <button style={s.btn} onClick={() => { logout(); navigate('/login'); }}>
+              Logout
+            </button>
+          </div>
+        </nav>
 
-      <main style={styles.main}>
-        {/* Upload Zone */}
-        <div
-          style={{...styles.uploadZone, borderColor: dragOver ? '#7c6ff7' : '#2a2a2a'}}
-          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={e => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files[0]); }}
-          onClick={() => document.getElementById('fileInput').click()}
-        >
-          {uploading ? (
-            <><Loader size={32} style={{color:'#7c6ff7', animation:'spin 1s linear infinite'}} />
-            <p style={styles.uploadText}>Uploading...</p></>
-          ) : (
-            <><Upload size={32} style={{color:'#7c6ff7'}} />
-            <p style={styles.uploadText}>Drop a PDF or TXT file here, or click to browse</p>
-            <p style={styles.uploadSubtext}>Files are processed with AI for instant Q&A</p></>
-          )}
-          <input id="fileInput" type="file" accept=".pdf,.txt"
-            style={{display:'none'}} onChange={e => handleFileUpload(e.target.files[0])} />
-        </div>
-
-        {/* Documents List */}
-        <h2 style={styles.sectionTitle}>Your Documents ({documents.length})</h2>
-        {documents.length === 0 ? (
-          <p style={styles.emptyText}>No documents yet. Upload one to get started.</p>
-        ) : (
-          <div style={styles.docGrid}>
-            {documents.map(doc => (
-              <div key={doc._id} style={styles.docCard}
-                onClick={() => doc.status === 'ready' && navigate(`/chat/${doc._id}`)}>
-                <FileText size={24} style={{color:'#7c6ff7', marginBottom:'0.75rem'}} />
-                <p style={styles.docName}>{doc.fileName}</p>
-                <span style={{...styles.statusBadge, background: statusColor(doc.status) + '22', color: statusColor(doc.status)}}>
-                  {doc.status}
-                </span>
-                {doc.status === 'ready' && <p style={styles.clickHint}>Click to chat →</p>}
+        <main style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem', animation: 'fadeIn 0.4s ease' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '1.5rem' }}>
+            {[
+              [documents.length, 'Total docs', '#a78bfa'],
+              [readyCount, 'Ready to chat', '#4caf50'],
+              [documents.filter(d => d.status === 'processing').length, 'Processing', '#7c6ff7'],
+            ].map(([n, label, color]) => (
+              <div key={label} style={s.statCard}>
+                <div style={{ fontSize: '11px', color: '#444', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+                <div style={{ fontSize: '26px', fontWeight: '500', color }}>{n}</div>
               </div>
             ))}
           </div>
-        )}
-      </main>
+
+          <div
+            style={{ ...s.glassCard, padding: '2.5rem', textAlign: 'center', marginBottom: '1.5rem', cursor: 'pointer', borderColor: dragOver ? 'rgba(124,111,247,0.6)' : 'rgba(124,111,247,0.2)', borderStyle: 'dashed' }}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); handleFileUpload(e.dataTransfer.files[0]); }}
+            onClick={() => document.getElementById('fileInput').click()}
+          >
+            {uploading ? (
+              <>
+                <div style={{ fontSize: '32px', marginBottom: '1rem', animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</div>
+                <p style={{ color: '#a78bfa', fontSize: '14px' }}>Uploading...</p>
+              </>
+            ) : (
+              <>
+                <div style={s.uploadIcon}>⬆</div>
+                <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '4px' }}>Drop a PDF or TXT file here</p>
+                <p style={{ fontSize: '12px', color: '#444' }}>or <span style={{ color: '#a78bfa' }}>browse files</span> — AI processes for instant Q&A</p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '1rem' }}>
+                  {['PDF', 'TXT', 'Max 10MB'].map(t => (
+                    <span key={t} style={s.fileBadge}>{t}</span>
+                  ))}
+                </div>
+              </>
+            )}
+            <input id="fileInput" type="file" accept=".pdf,.txt" style={{ display: 'none' }}
+              onChange={e => handleFileUpload(e.target.files[0])} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: '500', color: '#ccc' }}>
+              Your documents <span style={{ color: '#333', fontWeight: '400' }}>({documents.length})</span>
+            </h2>
+          </div>
+
+          {documents.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#333', padding: '3rem' }}>No documents yet. Upload one to get started.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(185px, 1fr))', gap: '10px' }}>
+              {documents.map(doc => (
+                <div key={doc._id} style={s.docCard}
+                  onClick={() => doc.status === 'ready' && navigate(`/chat/${doc._id}`)}>
+                  <div style={{ ...s.docIcon, borderColor: `${statusColor[doc.status] || '#333'}44` }}>
+                    <span style={{ fontSize: '18px', display: 'inline-block', animation: doc.status === 'processing' ? 'spin 2s linear infinite' : 'none' }}>
+                      {doc.status === 'ready' ? '📄' : doc.status === 'processing' ? '⟳' : doc.status === 'failed' ? '✗' : '⏳'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#bbb', marginBottom: '0.6rem', wordBreak: 'break-word', lineHeight: '1.4' }}>{doc.fileName}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusColor[doc.status] || '#666', display: 'inline-block', animation: doc.status === 'processing' ? 'pulse 1.5s ease-in-out infinite' : 'none' }}></span>
+                    <span style={{ fontSize: '11px', color: statusColor[doc.status] || '#666' }}>{doc.status}</span>
+                  </div>
+                  {doc.status === 'ready' && (
+                    <p style={{ marginTop: '6px', fontSize: '11px', color: '#7c6ff7' }}>Click to chat →</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
-const styles = {
-  container: { minHeight:'100vh', background:'#0f0f0f' },
-  nav: { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1rem 2rem', borderBottom:'1px solid #1a1a1a', background:'#0f0f0f', position:'sticky', top:0, zIndex:10 },
-  logo: { fontSize:'1.5rem', fontWeight:'700', color:'#7c6ff7' },
-  navRight: { display:'flex', alignItems:'center', gap:'1rem' },
-  userName: { color:'#888', fontSize:'0.9rem' },
-  logoutBtn: { display:'flex', alignItems:'center', gap:'0.4rem', background:'transparent', border:'1px solid #2a2a2a', color:'#888', padding:'0.4rem 0.8rem', borderRadius:'8px', cursor:'pointer', fontSize:'0.85rem' },
-  main: { maxWidth:'900px', margin:'0 auto', padding:'2rem' },
-  uploadZone: { border:'2px dashed', borderRadius:'16px', padding:'3rem', textAlign:'center', cursor:'pointer', marginBottom:'2.5rem', transition:'border-color 0.2s' },
-  uploadText: { marginTop:'1rem', fontSize:'1rem', color:'#ccc' },
-  uploadSubtext: { marginTop:'0.5rem', fontSize:'0.85rem', color:'#555' },
-  sectionTitle: { fontSize:'1.2rem', fontWeight:'600', marginBottom:'1rem', color:'#f0f0f0' },
-  emptyText: { color:'#555', textAlign:'center', padding:'2rem' },
-  docGrid: { display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'1rem' },
-  docCard: { background:'#1a1a1a', border:'1px solid #2a2a2a', borderRadius:'12px', padding:'1.25rem', cursor:'pointer', transition:'border-color 0.2s' },
-  docName: { fontSize:'0.9rem', color:'#ccc', marginBottom:'0.75rem', wordBreak:'break-word' },
-  statusBadge: { display:'inline-block', padding:'0.2rem 0.6rem', borderRadius:'20px', fontSize:'0.75rem', fontWeight:'600' },
-  clickHint: { marginTop:'0.75rem', fontSize:'0.8rem', color:'#7c6ff7' },
+const s = {
+  nav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 2rem', background: 'rgba(8,8,16,0.6)', backdropFilter: 'blur(20px)', borderBottom: '0.5px solid rgba(255,255,255,0.05)', position: 'sticky', top: 0, zIndex: 10 },
+  logo: { fontSize: '1.2rem', fontWeight: '500', color: '#f0f0f0', display: 'flex', alignItems: 'center', gap: '8px' },
+  logoIcon: { width: '30px', height: '30px', background: 'rgba(124,111,247,0.15)', border: '0.5px solid rgba(124,111,247,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' },
+  btn: { padding: '0.4rem 0.9rem', borderRadius: '8px', fontSize: '12px', cursor: 'pointer', border: '0.5px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)', color: '#888', fontFamily: 'inherit', transition: 'all 0.2s' },
+  statCard: { background: 'rgba(18,18,30,0.6)', backdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1.25rem' },
+  glassCard: { background: 'rgba(18,18,30,0.7)', backdropFilter: 'blur(20px)', border: '0.5px solid rgba(124,111,247,0.2)', borderRadius: '16px' },
+  uploadIcon: { width: '48px', height: '48px', background: 'rgba(124,111,247,0.1)', border: '0.5px solid rgba(124,111,247,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', fontSize: '20px' },
+  fileBadge: { padding: '0.3rem 0.75rem', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '0.5px solid rgba(255,255,255,0.06)', fontSize: '11px', color: '#444' },
+  docCard: { background: 'rgba(18,18,30,0.6)', backdropFilter: 'blur(10px)', border: '0.5px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '1.25rem', cursor: 'pointer', transition: 'all 0.2s' },
+  docIcon: { width: '36px', height: '36px', background: 'rgba(255,255,255,0.03)', border: '0.5px solid', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' },
 };

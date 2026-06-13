@@ -11,7 +11,11 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
-  useEffect(() => { fetchDocuments(); }, []);
+  useEffect(() => { 
+  fetchDocuments(); 
+  const interval = setInterval(fetchDocuments, 5000);
+  return () => clearInterval(interval);
+}, []);
 
   const fetchDocuments = async () => {
     try {

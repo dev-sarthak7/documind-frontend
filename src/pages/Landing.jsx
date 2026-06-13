@@ -180,15 +180,12 @@ export default function Landing() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <span style={{ fontSize: '12px', fontFamily: 'JetBrains Mono', color: '#c6c0ff', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Connect</span>
               <a href="https://github.com/dev-sarthak7" style={{ fontSize: '16px', color: '#c8c4d6', opacity: 0.8 }}>GitHub</a>
-              <a href="https://linkedin.com" style={{ fontSize: '16px', color: '#c8c4d6', opacity: 0.8 }}>LinkedIn</a>
+              <a href="https://www.linkedin.com/in/sarthak-s-borekar/" style={{ fontSize: '16px', color: '#c8c4d6', opacity: 0.8 }}>LinkedIn</a>
             </div>
           </div>
           <div style={{ maxWidth: '1280px', margin: '32px auto 0', padding: '16px 24px 0', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#c8c4d6', opacity: 0.6 }}>
             <span>© 2026 DocuMind. Built by Sarthak Satish Borekar.</span>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <a href="#">Terms</a>
-              <a href="#">Privacy</a>
-            </div>
+           
           </div>
         </footer>
       </div>
